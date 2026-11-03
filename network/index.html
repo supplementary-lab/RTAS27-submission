@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network trace RBFs</title>
+<meta name="description" content="Per-connection request-bound functions for the MIRAGE 2022 Zoom evaluation of Fast Incremental Request-Bound Function Extraction.">
+<link rel="icon" href="../favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Mono&family=Lora&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/rbf-viewer.css?v=4">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script src="../assets/rbf-viewer.js?v=4"></script>
+</head>
+<body>
+<main>
+  <h1>Network trace RBFs</h1>
+  <p>
+    This page accompanies the submitted paper <em>Fast Incremental Request-Bound
+    Function Extraction</em>. It shows the request-bound functions of each
+    connection in the time-sensitive network evaluation (Sec.&nbsp;VII-C,
+    Fig.&nbsp;10), extracted with the paper's settings. Synthetic workloads can
+    be explored in the <a href="../">RBF playground</a>.
+  </p>
+  <p>
+    Pick a connection and a budget. Hover for values, drag to zoom,
+    double-click to reset, and click a legend entry to hide a curve.
+  </p>
+
+  <div class="panel">
+    <div class="field grow">
+      <label class="label" for="sequence">Connection <span class="caption">(sorted by packet count)</span></label>
+      <div class="row">
+        <button id="prev" type="button" aria-label="Previous connection">&larr;</button>
+        <select id="sequence"></select>
+        <button id="next" type="button" aria-label="Next connection">&rarr;</button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="label">Budget <i>M</i>&nbsp;=&nbsp;<i>B</i></span>
+      <div class="choices" id="budgets" role="group" aria-label="Budget"></div>
+    </div>
+  </div>
+
+  <div id="plot" class="plot"></div>
+  <p class="caption" id="details"></p>
+
+  <h2>Over-approximation</h2>
+  <p>
+    The relative utilization over-approximation <i>E<sub>U</sub></i>
+    (Sec.&nbsp;VII-A) of each curve for this connection. Lower is better; zero
+    means exact. Fig.&nbsp;10 reports the mean over all connections.
+  </p>
+  <table>
+    <thead><tr><th>Method</th><th>Budget</th><th>Points</th><th><i>E<sub>U</sub></i> (%)</th></tr></thead>
+    <tbody id="summary"></tbody>
+  </table>
+</main>
+
+<script>
+// Release times are in µs and demands in bytes.
+rbfViewer({
+  index: "connections.json",
+  list: "connections",
+  param: "connection",
+  units: {
+    horizon: 1e6,
+    timeScale: 1e-3,
+    demandScale: 1,
+    demandTitle: "Demand (bytes)",
+    demandHover: "%{y:,} bytes",
+  },
+  option: ([id, activity, packets]) =>
+    `#${id} · ${activity} · ${packets.toLocaleString("en")} packets`,
+  details: (data) =>
+    `Capture <span class="mono">${data.capture}</span> · connection ` +
+    `<span class="mono">${data.conn}</span> · ${data.activity} · ` +
+    `${data.packets.toLocaleString("en")} packets over ${data.duration_s.toLocaleString("en")} s`,
+});
+</script>
+</body>
+</html>

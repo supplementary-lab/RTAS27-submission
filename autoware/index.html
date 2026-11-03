@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autoware thread RBFs</title>
+<meta name="description" content="Per-thread request-bound functions for the Autoware evaluation of Fast Incremental Request-Bound Function Extraction.">
+<link rel="icon" href="../favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Mono&family=Lora&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/rbf-viewer.css?v=4">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script src="../assets/rbf-viewer.js?v=4"></script>
+</head>
+<body>
+<main>
+  <h1>Autoware thread RBFs</h1>
+  <p>
+    This page accompanies the submitted paper <em>Fast Incremental Request-Bound
+    Function Extraction</em>. It shows the request-bound functions of each
+    thread in the Autoware evaluation (Sec.&nbsp;VII-D, Fig.&nbsp;11),
+    extracted with the paper's settings. Synthetic workloads can be explored in
+    the <a href="../">RBF playground</a>.
+  </p>
+  <p>
+    Pick a thread and a budget. Hover for values, drag to zoom, double-click to
+    reset, and click a legend entry to hide a curve.
+  </p>
+
+  <div class="panel">
+    <div class="field grow">
+      <label class="label" for="sequence">Thread <span class="caption">(sorted by exact RBF steps)</span></label>
+      <div class="row">
+        <button id="prev" type="button" aria-label="Previous thread">&larr;</button>
+        <select id="sequence"></select>
+        <button id="next" type="button" aria-label="Next thread">&rarr;</button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="label">Budget <i>M</i>&nbsp;=&nbsp;<i>B</i></span>
+      <div class="choices" id="budgets" role="group" aria-label="Budget"></div>
+    </div>
+  </div>
+
+  <div id="plot" class="plot"></div>
+  <p class="caption" id="details"></p>
+
+  <h2>Over-approximation</h2>
+  <p>
+    The relative utilization over-approximation <i>E<sub>U</sub></i>
+    (Sec.&nbsp;VII-A) of each curve for this thread. Lower is better; zero
+    means exact. Fig.&nbsp;11 reports the mean over all threads.
+  </p>
+  <table>
+    <thead><tr><th>Method</th><th>Budget</th><th>Points</th><th><i>E<sub>U</sub></i> (%)</th></tr></thead>
+    <tbody id="summary"></tbody>
+  </table>
+</main>
+
+<script>
+// Release times and demands are in ns.
+rbfViewer({
+  index: "threads.json",
+  list: "threads",
+  param: "thread",
+  units: {
+    horizon: 1e9,
+    timeScale: 1e-6,
+    demandScale: 1e-6,
+    demandTitle: "Demand (ms)",
+    demandHover: "%{y:.3f} ms",
+  },
+  option: ([id, node, tid, , steps]) =>
+    `#${id} · ${node} · TID ${tid} · ${steps.toLocaleString("en")} exact steps`,
+  details: (data) =>
+    `Node <span class="mono">${data.node}</span> · thread ` +
+    `<span class="mono">${data.comm}</span> (TID ${data.tid}) · ` +
+    `${data.jobs.toLocaleString("en")} jobs`,
+});
+</script>
+</body>
+</html>

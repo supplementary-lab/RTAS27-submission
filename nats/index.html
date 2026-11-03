@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NATS online extraction</title>
+<meta name="description" content="Extraction CPU usage and per-thread request-bound functions for the NATS evaluation of Fast Incremental Request-Bound Function Extraction.">
+<link rel="icon" href="../favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Mono&family=Lora&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/rbf-viewer.css?v=4">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script src="../assets/rbf-viewer.js?v=4"></script>
+</head>
+<body>
+<main>
+  <h1>NATS online extraction</h1>
+  <p>
+    This page accompanies the submitted paper <em>Fast Incremental Request-Bound
+    Function Extraction</em>. It shows the online extraction from the NATS
+    messaging server (Sec.&nbsp;VII-E): the CPU usage of LiME's extraction
+    thread over each 180-second trial (Fig.&nbsp;12) and the request-bound
+    functions of each NATS thread underlying the precision results in
+    Fig.&nbsp;13. Synthetic workloads can be explored in the <a href="../">RBF playground</a>.
+  </p>
+  <p>
+    Pick a message rate and a repetition. Hover for values, drag to zoom,
+    double-click to reset, and click a legend entry to hide a curve.
+  </p>
+
+  <div class="panel">
+    <div class="field grow">
+      <label class="label" for="rate">Message rate</label>
+      <div class="row"><select id="rate"></select></div>
+    </div>
+    <div class="field">
+      <span class="label">Repetition</span>
+      <div class="choices" id="runs" role="group" aria-label="Repetition"></div>
+    </div>
+  </div>
+
+  <h2>CPU usage</h2>
+  <p>
+    CPU usage of the extraction thread in each second, as a percentage of one
+    core. The legend gives each trial's mean.
+  </p>
+  <div id="cpu" class="plot"></div>
+
+  <h2>Request-bound functions</h2>
+  <p>
+    The RBFs come from a separate capture of the same repetition, which
+    exported the extracted jobs. The exact RBF is drawn through its last step
+    in each 1&nbsp;ms interval; its pair count and <i>E<sub>U</sub></i> use
+    the full curve.
+  </p>
+  <p class="caption" id="no-capture" hidden>
+    No capture at this rate. The precision evaluation covers 4,000 to 60,000
+    messages/s.
+  </p>
+  <div id="rbf">
+    <div class="panel">
+      <div class="field grow">
+        <label class="label" for="thread">Thread <span class="caption">(sorted by exact RBF steps)</span></label>
+        <div class="row">
+          <button id="prev" type="button" aria-label="Previous thread">&larr;</button>
+          <select id="thread"></select>
+          <button id="next" type="button" aria-label="Next thread">&rarr;</button>
+        </div>
+      </div>
+    </div>
+    <div id="plot" class="plot"></div>
+    <p class="caption" id="details"></p>
+    <p>
+      The relative utilization over-approximation <i>E<sub>U</sub></i>
+      (Sec.&nbsp;VII-A) of each curve for this thread. Lower is better; zero
+      means exact. Fig.&nbsp;13 reports the mean over all threads and
+      repetitions.
+    </p>
+    <table>
+      <thead><tr><th>Method</th><th>Budget</th><th>Points</th><th><i>E<sub>U</sub></i> (%)</th></tr></thead>
+      <tbody id="summary"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+// Release times and demands are in ns.
+const UNITS = {
+  horizon: 1e9,
+  timeScale: 1e-6,
+  demandScale: 1e-6,
+  demandTitle: "Demand (ms)",
+  demandHover: "%{y:.3f} ms",
+};
+const EXTRACTORS = [["gt", "FRBF", "Exact RBF"], ["crbf", "CRBF", "CRBF"], ["srbf", "SRBF", "SRBF"], ["prbf", "PRBF", "PRBF"]];
+const cache = new Map();
+let meta, rate = 40000, run = 1;
+
+function cached(url) {
+  if (!cache.has(url)) cache.set(url, fetchJson(url));
+  return cache.get(url);
+}
+
+function budgetLabel(algorithm) {
+  const budget = meta.budgets[algorithm];
+  return algorithm === "srbf" ? `M = ${budget}` : algorithm === "crbf" ? `B = ${budget}` : "";
+}
+
+function updateHash() {
+  const thread = $("rbf").hidden ? "" : `&thread=${$("thread").value}`;
+  history.replaceState(null, "", `#rate=${rate}&run=${run}${thread}`);
+}
+
+function renderCpu() {
+  const trials = meta.trials[rate][run - 1];
+  const seconds = Array.from({ length: meta.duration_s }, (_, i) => i + 1);
+  const traces = EXTRACTORS.filter(([algorithm]) => trials[algorithm]).map(([algorithm, label, style]) => {
+    const trial = trials[algorithm];
+    const budget = budgetLabel(algorithm);
+    const dropped = trial.dropped ? `, ${trial.dropped.toLocaleString("en")} trace records lost` : "";
+    return {
+      type: "scatter",
+      x: seconds,
+      y: trial.cpu,
+      name: `${label}${budget ? ` (${budget})` : ""} · mean ${trial.mean.toFixed(2)}%${dropped}`,
+      mode: "lines",
+      line: { color: STYLE[style].color, width: 2 },
+      hovertemplate: `${label}<br>second %{x}: %{y:.2f}%<extra></extra>`,
+    };
+  });
+  const layout = plotLayout($("cpu"), "Time (s)", "CPU usage (% of one core)");
+  layout.xaxis.range = [0, meta.duration_s + 1];
+  Plotly.react("cpu", traces, layout, { responsive: true, displaylogo: false });
+}
+
+async function renderThread() {
+  const capture = `${rate}-${run}`;
+  const id = $("thread").value;
+  updateHash();
+  let data;
+  try {
+    data = await cached(`rbf/${capture}/${id}.json`);
+  } catch (error) {
+    $("details").textContent = `Could not load thread ${id}: ${error.message}`;
+    return;
+  }
+  if (`${rate}-${run}` !== capture || $("thread").value !== id) return;
+
+  const exact = Object.assign(rbfCurve(data.exact, false, UNITS), { points: data.exact_steps });
+  rbfPlot("plot", "summary", [
+    ["Exact RBF", "", exact, 0],
+    ["CRBF", budgetLabel("crbf"), rbfCurve(data.crbf.pairs, false, UNITS), data.crbf.eu],
+    ["SRBF", budgetLabel("srbf"), rbfCurve(data.srbf.pairs, false, UNITS), data.srbf.eu],
+    ["PRBF", "", rbfCurve(data.prbf.pairs, true, UNITS), data.prbf.eu],
+  ], UNITS);
+  $("details").innerHTML = `Thread TID ${data.tid} · ${data.jobs.toLocaleString("en")} jobs`;
+}
+
+async function renderRbf(thread) {
+  const available = meta.precision_rates.includes(rate);
+  $("rbf").hidden = !available;
+  $("no-capture").hidden = available;
+  if (!available) {
+    updateHash();
+    return;
+  }
+  const capture = `${rate}-${run}`;
+  const index = await cached(`rbf/${capture}.json`);
+  if (`${rate}-${run}` !== capture) return;
+  // Keep the thread's rank across captures; thread sets differ between runs.
+  const keep = thread ?? Number($("thread").value || 1);
+  $("thread").innerHTML = index.threads.map(([id, tid, , steps]) =>
+    `<option value="${id}">#${id} · TID ${tid} · ${steps.toLocaleString("en")} exact steps</option>`
+  ).join("");
+  $("thread").value = String(Math.min(keep, index.threads.length));
+  renderThread();
+}
+
+function render(thread) {
+  $("rate").value = String(rate);
+  pressChoice("runs", run);
+  renderCpu();
+  renderRbf(thread);
+}
+
+async function main() {
+  meta = await fetchJson("cpu.json");
+  $("rate").innerHTML = meta.rates.map((r) =>
+    `<option value="${r}">${r.toLocaleString("en")} messages/s</option>`
+  ).join("");
+  const runs = Array.from({ length: meta.runs }, (_, i) => i + 1);
+  choiceButtons("runs", runs, (r) => r);
+
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (meta.rates.includes(Number(params.get("rate")))) rate = Number(params.get("rate"));
+  if (runs.includes(Number(params.get("run")))) run = Number(params.get("run"));
+  const thread = Number(params.get("thread")) || undefined;
+
+  $("rate").addEventListener("change", () => {
+    rate = Number($("rate").value);
+    render();
+  });
+  onChoice("runs", (value) => {
+    run = value;
+    render();
+  });
+  $("thread").addEventListener("change", renderThread);
+  $("prev").addEventListener("click", () => stepSelect("thread", -1, renderThread));
+  $("next").addEventListener("click", () => stepSelect("thread", 1, renderThread));
+  render(thread);
+}
+
+main();
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+/* Tokens follow marimo's light theme. */
+:root {
+  color-scheme: light;
+  --background: #fff;
+  --foreground: #0f172a;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --link: #0b68cb;
+  --primary: #0880ea;
+  --slate-5: #e1e4e8;
+  --slate-7: #c8cdd4;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font: 16px/1.5 "PT Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: 1110px; margin: 0 auto; padding: 2.5rem 16px 4rem; }
+h1, h2 { font-family: "Lora", serif; font-weight: normal; line-height: 1.25; margin: 1.5rem 0 1rem; }
+h1 { font-size: 2.25em; margin-top: 0; }
+h2 { font-size: 1.5em; }
+p { margin: 1rem 0; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: "Fira Mono", monospace; font-size: 0.85em; }
+.panel {
+  border: 1px solid var(--slate-7);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 0 var(--slate-5);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  align-items: flex-end;
+}
+.field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.field.grow { flex: 1 1 22rem; }
+.label { font-weight: 700; }
+.row { display: flex; gap: 0.4rem; }
+select, button {
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--slate-7);
+  border-radius: 6px;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+}
+select { flex: 1; min-width: 0; }
+button { cursor: pointer; box-shadow: 2px 2px 0 0 var(--slate-5); }
+button:hover { border-color: var(--muted-foreground); }
+.choices { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.choices button { min-width: 2.75rem; padding: 0 0.5rem; }
+.choices button[aria-pressed="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.caption { font-size: 0.85rem; color: var(--muted-foreground); }
+.plot { height: 460px; margin-top: 1rem; }
+table { border-collapse: collapse; font-size: 0.9rem; margin-top: 0.5rem; }
+th, td { padding: 0.35rem 1.25rem 0.35rem 0; border-bottom: 1px solid var(--border); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 700; }
+.swatch { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 2px; margin-right: 0.4rem; vertical-align: -1px; }
+@media (max-width: 600px) { .plot { height: 380px; } }
